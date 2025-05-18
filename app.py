@@ -5,7 +5,8 @@ import glob
 from datetime import datetime
 from linebot.v3 import WebhookHandler
 from linebot.v3.exceptions import InvalidSignatureError
-from linebot.v3.webhooks import MessageEvent, ImageMessage
+from linebot.v3.webhooks import MessageEvent
+from linebot.v3.webhooks.models import ImageMessageContent
 from linebot.v3.messaging import Configuration, ApiClient, MessagingApi, ReplyMessageRequest, TextMessage
 
 app = Flask(__name__)
@@ -33,7 +34,7 @@ def callback():
 
     return 'OK'
 
-@handler.add(MessageEvent, message=ImageMessage)
+@handler.add(MessageEvent, message=ImageMessageContent)
 def handle_image(event):
     try:
         # 最新の画像ファイルを取得
