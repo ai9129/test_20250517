@@ -1,0 +1,1 @@
+web: python image_to_text.py 
