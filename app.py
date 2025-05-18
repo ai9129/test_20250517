@@ -3,11 +3,38 @@ import os
 from image_to_text import extract_text_from_image, format_text_to_table, append_to_spreadsheet
 import glob
 from datetime import datetime
+from linebot import LineBotApi, WebhookHandler
+from linebot.exceptions import InvalidSignatureError
+from linebot.models import TextSendMessage
 
 app = Flask(__name__)
 
+# LINE APIの設定
+LINE_CHANNEL_ACCESS_TOKEN = os.getenv('LINE_CHANNEL_ACCESS_TOKEN')
+LINE_CHANNEL_SECRET = os.getenv('LINE_CHANNEL_SECRET')
+line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
+handler = WebhookHandler(LINE_CHANNEL_SECRET)
+
 @app.route('/callback', methods=['POST'])
 def callback():
+    # リクエストヘッダーからX-Line-Signatureを取得
+    signature = request.headers['X-Line-Signature']
+
+    # リクエストボディを取得
+    body = request.get_data(as_text=True)
+    app.logger.info("Request body: " + body)
+
+    try:
+        # 署名を検証し、問題なければhandleに定義されている関数を呼び出す
+        handler.handle(body, signature)
+    except InvalidSignatureError:
+        # 署名検証で失敗したときは例外をあげる
+        abort(400)
+
+    return 'OK'
+
+@handler.add(MessageEvent, message=ImageMessage)
+def handle_image(event):
     try:
         # 最新の画像ファイルを取得
         image_path = get_latest_image()
@@ -30,16 +57,34 @@ def callback():
                 
                 # スプレッドシートにデータを追加
                 append_to_spreadsheet(table_data, image_path)
-                return jsonify({"status": "success"}), 200
+                
+                # 完了メッセージを送信
+                reply_message = "画像の処理が完了しました！\nスプレッドシートにデータを保存しました。"
+                line_bot_api.reply_message(
+                    event.reply_token,
+                    TextSendMessage(text=reply_message)
+                )
             else:
-                return jsonify({"status": "error", "message": "テキストの整形に失敗しました。"}), 500
+                line_bot_api.reply_message(
+                    event.reply_token,
+                    TextSendMessage(text="テキストの整形に失敗しました。")
+                )
         else:
-            return jsonify({"status": "error", "message": "テキストの抽出に失敗しました。"}), 500
+            line_bot_api.reply_message(
+                event.reply_token,
+                TextSendMessage(text="テキストの抽出に失敗しました。")
+            )
             
     except FileNotFoundError as e:
-        return jsonify({"status": "error", "message": str(e)}), 404
+        line_bot_api.reply_message(
+            event.reply_token,
+            TextSendMessage(text=str(e))
+        )
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+        line_bot_api.reply_message(
+            event.reply_token,
+            TextSendMessage(text=f"予期せぬエラーが発生しました: {str(e)}")
+        )
 
 def get_latest_image():
     """
