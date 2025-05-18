@@ -3,9 +3,11 @@ import os
 from image_to_text import extract_text_from_image, format_text_to_table, append_to_spreadsheet
 import glob
 from datetime import datetime
-from linebot import LineBotApi, WebhookHandler
-from linebot.exceptions import InvalidSignatureError
-from linebot.models import TextSendMessage
+from linebot import LineBotApi
+from linebot.v3 import WebhookHandler
+from linebot.v3.exceptions import InvalidSignatureError
+from linebot.v3.webhooks import MessageEvent, ImageMessage
+from linebot.v3.messaging import Configuration, ApiClient, MessagingApi, ReplyMessageRequest, TextMessage
 
 app = Flask(__name__)
 
@@ -60,31 +62,51 @@ def handle_image(event):
                 
                 # 完了メッセージを送信
                 reply_message = "画像の処理が完了しました！\nスプレッドシートにデータを保存しました。"
-                line_bot_api.reply_message(
-                    event.reply_token,
-                    TextSendMessage(text=reply_message)
-                )
+                with ApiClient(Configuration(access_token=LINE_CHANNEL_ACCESS_TOKEN)) as api_client:
+                    line_bot_api = MessagingApi(api_client)
+                    line_bot_api.reply_message_with_http_info(
+                        ReplyMessageRequest(
+                            reply_token=event.reply_token,
+                            messages=[TextMessage(text=reply_message)]
+                        )
+                    )
             else:
-                line_bot_api.reply_message(
-                    event.reply_token,
-                    TextSendMessage(text="テキストの整形に失敗しました。")
-                )
+                with ApiClient(Configuration(access_token=LINE_CHANNEL_ACCESS_TOKEN)) as api_client:
+                    line_bot_api = MessagingApi(api_client)
+                    line_bot_api.reply_message_with_http_info(
+                        ReplyMessageRequest(
+                            reply_token=event.reply_token,
+                            messages=[TextMessage(text="テキストの整形に失敗しました。")]
+                        )
+                    )
         else:
-            line_bot_api.reply_message(
-                event.reply_token,
-                TextSendMessage(text="テキストの抽出に失敗しました。")
-            )
+            with ApiClient(Configuration(access_token=LINE_CHANNEL_ACCESS_TOKEN)) as api_client:
+                line_bot_api = MessagingApi(api_client)
+                line_bot_api.reply_message_with_http_info(
+                    ReplyMessageRequest(
+                        reply_token=event.reply_token,
+                        messages=[TextMessage(text="テキストの抽出に失敗しました。")]
+                    )
+                )
             
     except FileNotFoundError as e:
-        line_bot_api.reply_message(
-            event.reply_token,
-            TextSendMessage(text=str(e))
-        )
+        with ApiClient(Configuration(access_token=LINE_CHANNEL_ACCESS_TOKEN)) as api_client:
+            line_bot_api = MessagingApi(api_client)
+            line_bot_api.reply_message_with_http_info(
+                ReplyMessageRequest(
+                    reply_token=event.reply_token,
+                    messages=[TextMessage(text=str(e))]
+                )
+            )
     except Exception as e:
-        line_bot_api.reply_message(
-            event.reply_token,
-            TextSendMessage(text=f"予期せぬエラーが発生しました: {str(e)}")
-        )
+        with ApiClient(Configuration(access_token=LINE_CHANNEL_ACCESS_TOKEN)) as api_client:
+            line_bot_api = MessagingApi(api_client)
+            line_bot_api.reply_message_with_http_info(
+                ReplyMessageRequest(
+                    reply_token=event.reply_token,
+                    messages=[TextMessage(text=f"予期せぬエラーが発生しました: {str(e)}")]
+                )
+            )
 
 def get_latest_image():
     """
