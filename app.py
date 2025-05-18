@@ -3,7 +3,6 @@ import os
 from image_to_text import extract_text_from_image, format_text_to_table, append_to_spreadsheet
 import glob
 from datetime import datetime
-from linebot import LineBotApi
 from linebot.v3 import WebhookHandler
 from linebot.v3.exceptions import InvalidSignatureError
 from linebot.v3.webhooks import MessageEvent, ImageMessage
@@ -14,7 +13,6 @@ app = Flask(__name__)
 # LINE APIの設定
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv('LINE_CHANNEL_ACCESS_TOKEN')
 LINE_CHANNEL_SECRET = os.getenv('LINE_CHANNEL_SECRET')
-line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
 @app.route('/callback', methods=['POST'])
