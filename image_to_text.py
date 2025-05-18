@@ -4,9 +4,7 @@ from PIL import Image
 from dotenv import load_dotenv
 import glob
 from datetime import datetime
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
-from google.auth.transport.requests import Request
+from google.oauth2 import service_account
 from googleapiclient.discovery import build
 import pickle
 import re
@@ -23,17 +21,32 @@ if not GOOGLE_API_KEY:
 
 genai.configure(api_key=GOOGLE_API_KEY)
 
-# 環境変数からcredentials.jsonの内容を取得
-credentials_json_str = os.environ.get('CREDENTIALS_JSON')
-if credentials_json_str:
-    credentials_info = json.loads(credentials_json_str)
+# 環境変数からサービスアカウントの認証情報を取得
+service_account_info = os.environ.get('GOOGLE_SERVICE_ACCOUNT')
+if service_account_info:
+    credentials_info = json.loads(service_account_info)
 else:
     # ローカル環境では従来通りファイルから読み込む
-    with open('credentials.json', 'r') as f:
+    with open('service-account.json', 'r') as f:
         credentials_info = json.load(f)
 
 # Google Sheets APIのスコープ
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
+
+def get_google_sheets_service():
+    """
+    Google Sheets APIのサービスを取得する関数
+    
+    Returns:
+        googleapiclient.discovery.Resource: Google Sheets APIのサービス
+    """
+    try:
+        credentials = service_account.Credentials.from_service_account_info(
+            credentials_info, scopes=SCOPES)
+        return build('sheets', 'v4', credentials=credentials)
+    except Exception as e:
+        print(f"Google Sheets APIの認証中にエラーが発生しました: {str(e)}")
+        raise
 
 def format_text_to_table(text):
     """
@@ -77,32 +90,6 @@ def format_text_to_table(text):
     except Exception as e:
         print(f"テキストの整形中にエラーが発生しました: {str(e)}")
         return None
-
-def get_google_sheets_service():
-    """
-    Google Sheets APIのサービスを取得する関数
-    
-    Returns:
-        googleapiclient.discovery.Resource: Google Sheets APIのサービス
-    """
-    creds = None
-    # token.pickleファイルが存在する場合は、そこから認証情報を読み込む
-    if os.path.exists('token.pickle'):
-        with open('token.pickle', 'rb') as token:
-            creds = pickle.load(token)
-    
-    # 認証情報が無効な場合は更新
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            flow = InstalledAppFlow.from_client_config(credentials_info, SCOPES)
-            creds = flow.run_local_server(port=0)
-        # 認証情報を保存
-        with open('token.pickle', 'wb') as token:
-            pickle.dump(creds, token)
-    
-    return build('sheets', 'v4', credentials=creds)
 
 def clear_sheet(service, spreadsheet_id, sheet_name):
     """
