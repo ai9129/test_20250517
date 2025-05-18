@@ -10,6 +10,8 @@ from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 import pickle
 import re
+import json
+import base64
 
 # .envファイルから環境変数を読み込む
 load_dotenv()
@@ -20,6 +22,15 @@ if not GOOGLE_API_KEY:
     raise ValueError("GOOGLE_API_KEYが設定されていません。.envファイルを確認してください。")
 
 genai.configure(api_key=GOOGLE_API_KEY)
+
+# 環境変数からcredentials.jsonの内容を取得
+credentials_json_str = os.environ.get('CREDENTIALS_JSON')
+if credentials_json_str:
+    credentials_info = json.loads(credentials_json_str)
+else:
+    # ローカル環境では従来通りファイルから読み込む
+    with open('credentials.json', 'r') as f:
+        credentials_info = json.load(f)
 
 # Google Sheets APIのスコープ
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
@@ -85,8 +96,7 @@ def get_google_sheets_service():
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
-            flow = InstalledAppFlow.from_client_secrets_file(
-                'credentials.json', SCOPES)
+            flow = InstalledAppFlow.from_client_config(credentials_info, SCOPES)
             creds = flow.run_local_server(port=0)
         # 認証情報を保存
         with open('token.pickle', 'wb') as token:
